@@ -18,6 +18,7 @@ void
 ngx_http_lua_inject_core_consts(lua_State *L)
 {
     /* {{{ core constants */
+    /* 注册核心常量，使用方式如ngx.OK\ngx.DONE*/
     lua_pushinteger(L, NGX_OK);
     lua_setfield(L, -2, "OK");
 
@@ -43,6 +44,7 @@ void
 ngx_http_lua_inject_http_consts(lua_State *L)
 {
     /* {{{ HTTP status constants */
+    /* 注册HTTP方法常量，使用方式如ngx.HTTP_GET*/
     lua_pushinteger(L, NGX_HTTP_GET);
     lua_setfield(L, -2, "HTTP_GET");
 
@@ -89,6 +91,7 @@ ngx_http_lua_inject_http_consts(lua_State *L)
     lua_setfield(L, -2, "HTTP_TRACE");
     /* }}} */
 
+    /* 注册HTTP响应状态码，使用方式如ngx.HTTP_OK*/
     lua_pushinteger(L, NGX_HTTP_CONTINUE);
     lua_setfield(L, -2, "HTTP_CONTINUE");
 

@@ -430,7 +430,7 @@ static ngx_command_t ngx_http_lua_cmds[] = {
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_lua_loc_conf_t, send_timeout),
       NULL },
-
+    //cosocket send buffer low water value to control,only work on FreeBSD
     { ngx_string("lua_socket_send_lowat"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF
           |NGX_HTTP_LIF_CONF|NGX_CONF_TAKE1,
@@ -617,7 +617,7 @@ ngx_module_t ngx_http_lua_module = {
 static ngx_int_t
 ngx_http_lua_init(ngx_conf_t *cf)
 {
-    int                         multi_http_blocks;
+    int                         multi_http_blocks;//标识是否有多个http配置块
     ngx_int_t                   rc;
     ngx_array_t                *arr;
     ngx_http_handler_pt        *h;
@@ -628,7 +628,7 @@ ngx_http_lua_init(ngx_conf_t *cf)
     ngx_pool_cleanup_t         *cln;
 #endif
 
-    lmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_lua_module);
+    lmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_lua_module);//lua_module_conf
 
     if (ngx_http_lua_prev_cycle != ngx_cycle) {
         ngx_http_lua_prev_cycle = ngx_cycle;
@@ -646,17 +646,17 @@ ngx_http_lua_init(ngx_conf_t *cf)
     }
 
     if (lmcf->postponed_to_rewrite_phase_end == NGX_CONF_UNSET) {
-        lmcf->postponed_to_rewrite_phase_end = 0;
+        lmcf->postponed_to_rewrite_phase_end = 0;//默认关闭rewrite_by_lua_no_postpone
     }
 
     if (lmcf->postponed_to_access_phase_end == NGX_CONF_UNSET) {
-        lmcf->postponed_to_access_phase_end = 0;
+        lmcf->postponed_to_access_phase_end = 0;//默认关闭access_by_lua_no_postpone
     }
 
-    cmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_core_module);
+    cmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_core_module);//core_module_conf
 
     if (lmcf->requires_rewrite) {
-        h = ngx_array_push(&cmcf->phases[NGX_HTTP_REWRITE_PHASE].handlers);
+        h = ngx_array_push(&cmcf->phases[NGX_HTTP_REWRITE_PHASE].handlers);//添加lua_rewrite_by_xxx
         if (h == NULL) {
             return NGX_ERROR;
         }
@@ -665,7 +665,7 @@ ngx_http_lua_init(ngx_conf_t *cf)
     }
 
     if (lmcf->requires_access) {
-        h = ngx_array_push(&cmcf->phases[NGX_HTTP_ACCESS_PHASE].handlers);
+        h = ngx_array_push(&cmcf->phases[NGX_HTTP_ACCESS_PHASE].handlers);//添加lua_access_by_xxx
         if (h == NULL) {
             return NGX_ERROR;
         }
@@ -676,7 +676,7 @@ ngx_http_lua_init(ngx_conf_t *cf)
     dd("requires log: %d", (int) lmcf->requires_log);
 
     if (lmcf->requires_log) {
-        arr = &cmcf->phases[NGX_HTTP_LOG_PHASE].handlers;
+        arr = &cmcf->phases[NGX_HTTP_LOG_PHASE].handlers;//添加lua_log_by_xxx
         h = ngx_array_push(arr);
         if (h == NULL) {
             return NGX_ERROR;
@@ -692,14 +692,14 @@ ngx_http_lua_init(ngx_conf_t *cf)
     }
 
     if (multi_http_blocks || lmcf->requires_header_filter) {
-        rc = ngx_http_lua_header_filter_init();
+        rc = ngx_http_lua_header_filter_init();//初始化lua_header_filter_xxx
         if (rc != NGX_OK) {
             return rc;
         }
     }
 
     if (multi_http_blocks || lmcf->requires_body_filter) {
-        rc = ngx_http_lua_body_filter_init();
+        rc = ngx_http_lua_body_filter_init();//初始化lua_body_filter_xxx
         if (rc != NGX_OK) {
             return rc;
         }
@@ -724,7 +724,7 @@ ngx_http_lua_init(ngx_conf_t *cf)
         ngx_http_lua_location_hash = ngx_http_lua_hash_literal("location");
 
         lmcf->lua = ngx_http_lua_init_vm(NULL, cf->cycle, cf->pool, lmcf,
-                                         cf->log, NULL);
+                                         cf->log, NULL);//初始化lua_vm
         if (lmcf->lua == NULL) {
             ngx_conf_log_error(NGX_LOG_ERR, cf, 0,
                                "failed to initialize Lua VM");
@@ -757,7 +757,7 @@ ngx_http_lua_lowat_check(ngx_conf_t *cf, void *post, void *data)
 {
 #if (NGX_FREEBSD)
     ssize_t *np = data;
-
+    //freebsd系统下 待发送TCP数据缓冲区空间
     if ((u_long) *np >= ngx_freebsd_net_inet_tcp_sendspace) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                            "\"lua_send_lowat\" must be less than %d "
@@ -794,7 +794,7 @@ ngx_http_lua_create_main_conf(ngx_conf_t *cf)
     if (lmcf == NULL) {
         return NULL;
     }
-
+    //lua_main_conf初始化值表
     /* set by ngx_pcalloc:
      *      lmcf->lua = NULL;
      *      lmcf->lua_path = { 0, NULL };
@@ -917,12 +917,12 @@ ngx_http_lua_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
 {
 #if (NGX_HTTP_SSL)
 
-    ngx_http_lua_srv_conf_t *prev = parent;
-    ngx_http_lua_srv_conf_t *conf = child;
+    ngx_http_lua_srv_conf_t *prev = parent;//可继承的server conf配置
+    ngx_http_lua_srv_conf_t *conf = child;//当前的server conf配置
     ngx_http_ssl_srv_conf_t *sscf;
 
     dd("merge srv conf");
-
+    //根据情况判断是否可进行合并继承
     if (conf->srv.ssl_cert_src.len == 0) {
         conf->srv.ssl_cert_src = prev->srv.ssl_cert_src;
         conf->srv.ssl_cert_src_key = prev->srv.ssl_cert_src_key;
@@ -1050,22 +1050,22 @@ ngx_http_lua_create_loc_conf(ngx_conf_t *cf)
      *      conf->ssl_crl = { 0, NULL };
      */
 
-    conf->force_read_body    = NGX_CONF_UNSET;
-    conf->enable_code_cache  = NGX_CONF_UNSET;
-    conf->http10_buffering   = NGX_CONF_UNSET;
-    conf->check_client_abort = NGX_CONF_UNSET;
-    conf->use_default_type   = NGX_CONF_UNSET;
+    conf->force_read_body    = NGX_CONF_UNSET;//lua_need_request_body 默认
+    conf->enable_code_cache  = NGX_CONF_UNSET;//lua_code_cache 默认 on
+    conf->http10_buffering   = NGX_CONF_UNSET;//lua_http10_buffering 默认 on
+    conf->check_client_abort = NGX_CONF_UNSET;//lua_check_client_abort 默认 off
+    conf->use_default_type   = NGX_CONF_UNSET;//lua_use_default_type 默认 on
 
-    conf->keepalive_timeout = NGX_CONF_UNSET_MSEC;
-    conf->connect_timeout = NGX_CONF_UNSET_MSEC;
-    conf->send_timeout = NGX_CONF_UNSET_MSEC;
-    conf->read_timeout = NGX_CONF_UNSET_MSEC;
-    conf->send_lowat = NGX_CONF_UNSET_SIZE;
-    conf->buffer_size = NGX_CONF_UNSET_SIZE;
-    conf->pool_size = NGX_CONF_UNSET_UINT;
+    conf->keepalive_timeout = NGX_CONF_UNSET_MSEC;//lua_socket_keepalive_timeout default:60s
+    conf->connect_timeout = NGX_CONF_UNSET_MSEC;//lua_socket_connect_timeout default:60s
+    conf->send_timeout = NGX_CONF_UNSET_MSEC;//lua_socket_send_timeout default:60s
+    conf->read_timeout = NGX_CONF_UNSET_MSEC;//lua_socket_read_timeout default:60s
+    conf->send_lowat = NGX_CONF_UNSET_SIZE;//lua_socket_send_lowat default:0
+    conf->buffer_size = NGX_CONF_UNSET_SIZE;//lua_socket_buffer_size
+    conf->pool_size = NGX_CONF_UNSET_UINT;//lua_socket_pool_size default:30
 
-    conf->transform_underscores_in_resp_headers = NGX_CONF_UNSET;
-    conf->log_socket_errors = NGX_CONF_UNSET;
+    conf->transform_underscores_in_resp_headers = NGX_CONF_UNSET;//lua_transform_underscores_in_response_headers default:on
+    conf->log_socket_errors = NGX_CONF_UNSET;//lua_socket_log_errors deafult:on
 
 #if (NGX_HTTP_SSL)
     conf->ssl_verify_depth = NGX_CONF_UNSET_UINT;
@@ -1078,9 +1078,9 @@ ngx_http_lua_create_loc_conf(ngx_conf_t *cf)
 static char *
 ngx_http_lua_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 {
-    ngx_http_lua_loc_conf_t *prev = parent;
-    ngx_http_lua_loc_conf_t *conf = child;
-
+    ngx_http_lua_loc_conf_t *prev = parent;//可继承的location配置
+    ngx_http_lua_loc_conf_t *conf = child;//当前的location配置
+    //根据情况判断是否可进行继承
     if (conf->rewrite_src.value.len == 0) {
         conf->rewrite_src = prev->rewrite_src;
         conf->rewrite_handler = prev->rewrite_handler;

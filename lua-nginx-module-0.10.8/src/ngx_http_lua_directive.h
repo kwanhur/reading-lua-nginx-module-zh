@@ -11,12 +11,15 @@
 
 #include "ngx_http_lua_common.h"
 
-
+/* lua_shared_dict 指令定义，如lua_shared_dict dog 1m;*/
 char *ngx_http_lua_shared_dict(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+/* lua_package_cpath 指令定义，如lua_package_cpath "/usr/local/openresty/lualib/?.so;;";*/
 char *ngx_http_lua_package_cpath(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
+/* lua_package_path 指令定义，如lua_package_path "/usr/local/openresty/lualib/?.lua;;";*/
 char *ngx_http_lua_package_path(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
+/* lua_phase_by_lua\block\file 指令定义，如lua_content_by_file /usr/local/openresty/demo/content.lua;*/
 char *ngx_http_lua_content_by_lua_block(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
 char *ngx_http_lua_content_by_lua(ngx_conf_t *cf, ngx_command_t *cmd,
@@ -49,6 +52,7 @@ char *ngx_http_lua_init_worker_by_lua_block(ngx_conf_t *cf,
     ngx_command_t *cmd, void *conf);
 char *ngx_http_lua_init_worker_by_lua(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
+/*lua_code_cache 指令定义，如lua_code_cache on;*/
 char *ngx_http_lua_code_cache(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
 #if defined(NDK) && NDK

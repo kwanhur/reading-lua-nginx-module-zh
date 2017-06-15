@@ -18,7 +18,7 @@
 
 /* Public API for other Nginx modules */
 
-
+/* 版本号：3位-3位-3位 对应0.10.8 */
 #define ngx_http_lua_version  10008
 
 
