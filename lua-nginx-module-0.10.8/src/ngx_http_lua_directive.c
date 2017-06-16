@@ -138,6 +138,7 @@ ngx_http_lua_shared_dict(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     }
 
     zone->init = ngx_http_lua_shdict_init_zone; //将在ngx_init_cycle里被调用
+    //ngx_http_lua_shm_zone_ctx_t-->zone(ngx_shm_zone_t)-->data(ngx_http_lua_shdict_ctx_t)
     zone->data = ctx; //共享内存对象的自定义数据结构 指向共享内存上下文
     //将共享内存对象塞进共享字典数组里进行管理
     zp = ngx_array_push(lmcf->shdict_zones);

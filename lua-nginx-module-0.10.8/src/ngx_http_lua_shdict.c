@@ -318,7 +318,7 @@ ngx_http_lua_shdict_expire(ngx_http_lua_shdict_ctx_t *ctx, ngx_uint_t n)
     return freed;
 }
 
-
+//将shared dict可用方法API注入到各字典里
 void
 ngx_http_lua_inject_shdict_api(ngx_http_lua_main_conf_t *lmcf, lua_State *L)
 {
@@ -327,13 +327,18 @@ ngx_http_lua_inject_shdict_api(ngx_http_lua_main_conf_t *lmcf, lua_State *L)
     ngx_shm_zone_t             **zone;
 
     if (lmcf->shdict_zones != NULL) {
+        //创建一个空的table，并设置存放的元素个数
+        //void lua_createtable (lua_State *L, int narr, int nrec);
+        //0代表当table作为列表时，将有0个元素
+        //最后设定该table对应了shared
         lua_createtable(L, 0, lmcf->shdict_zones->nelts /* nrec */);
                 /* ngx.shared */
-
+        //ngx.shared table的metatable 后续设置的API均关联至mt上
         lua_createtable(L, 0 /* narr */, 18 /* nrec */); /* shared mt */
 
-        lua_pushcfunction(L, ngx_http_lua_shdict_get);
-        lua_setfield(L, -2, "get");
+        lua_pushcfunction(L, ngx_http_lua_shdict_get); //先push get真正需执行的c方法api
+        //对应的是table mt，然后pop cfunction进行赋值 mt["get"] = ngx_http_lua_shdict_get
+        lua_setfield(L, -2, "get"); //设置方法对应的名称是get 栈的位置是-2 即是mt table
 
         lua_pushcfunction(L, ngx_http_lua_shdict_get_stale);
         lua_setfield(L, -2, "get_stale");
@@ -383,24 +388,26 @@ ngx_http_lua_inject_shdict_api(ngx_http_lua_main_conf_t *lmcf, lua_State *L)
         lua_pushcfunction(L, ngx_http_lua_shdict_get_keys);
         lua_setfield(L, -2, "get_keys");
 
-        lua_pushvalue(L, -1); /* shared mt mt */
-        lua_setfield(L, -2, "__index"); /* shared mt */
+        lua_pushvalue(L, -1); /* shared mt mt */ //copy index -1 ngx.shared table onto the stack
+        lua_setfield(L, -2, "__index"); /* shared mt */ //相当于mt["__index"] = shared_table 设置ngx.shared table的元表
 
-        zone = lmcf->shdict_zones->elts;
-
+        zone = lmcf->shdict_zones->elts; //共享字典数组里的所有元素
+        //整个过程将所有共享字典元素全部关联到table ngx.shared上，并设置metatable元表 提供公共操作API，且将用户数据关联到元素table上
+        //实现的效果如 local dog_table = ngx.shared.dog; ngx.print(dog_table:get("foo"))
         for (i = 0; i < lmcf->shdict_zones->nelts; i++) {
             ctx = zone[i]->data;
 
-            lua_pushlstring(L, (char *) ctx->name.data, ctx->name.len);
+            lua_pushlstring(L, (char *) ctx->name.data, ctx->name.len); //ngx.shared.dog
                 /* shared mt key */
-
-            lua_createtable(L, 1 /* narr */, 0 /* nrec */);
+            //创建出每个共享内存对应的共享内存字典，对应一张lua table 是数组类型
+            lua_createtable(L, 1 /* narr */, 0 /* nrec */); // dog table,local dog = ngx.shared.dog
                 /* table of zone[i] */
+            //zone[i] 对应ngx_http_lua_shm_zone_ctx_t的数据结构 存放在table的数组里，方便后续的API函数里获取到这个结构
             lua_pushlightuserdata(L, zone[i]); /* shared mt key ud */
-            lua_rawseti(L, -2, SHDICT_USERDATA_INDEX); /* {zone[i]} */
+            lua_rawseti(L, -2, SHDICT_USERDATA_INDEX); /* {zone[i]} */ // mt[1]=zone[i]
             lua_pushvalue(L, -3); /* shared mt key ud mt */
-            lua_setmetatable(L, -2); /* shared mt key ud */
-            lua_rawset(L, -4); /* shared mt */
+            lua_setmetatable(L, -2); /* shared mt key ud */ //设置metatable mt["__index"] = dog table，即可使用API，dog:get("foo")
+            lua_rawset(L, -4); /* shared mt */ //相当于ngx.shared.dog = dog table
         }
 
         lua_pop(L, 1); /* shared */
@@ -409,7 +416,7 @@ ngx_http_lua_inject_shdict_api(ngx_http_lua_main_conf_t *lmcf, lua_State *L)
         lua_newtable(L);    /* ngx.shared */
     }
 
-    lua_setfield(L, -2, "shared");
+    lua_setfield(L, -2, "shared"); //ngx.shared = mt
 }
 
 
@@ -926,23 +933,23 @@ ngx_http_lua_shdict_set_helper(lua_State *L, int flags)
     int32_t                      user_flags = 0;
     ngx_queue_t                 *queue, *q;
 
-    n = lua_gettop(L);
+    n = lua_gettop(L); //获取第一个元素所在位置索引
 
     if (n != 3 && n != 4 && n != 5) {
         return luaL_error(L, "expecting 3, 4 or 5 arguments, "
                           "but only seen %d", n);
     }
-
+    //判断第一个元素是否是lua table类型
     if (lua_type(L, 1) != LUA_TTABLE) {
         return luaL_error(L, "bad \"zone\" argument");
     }
 
-    zone = ngx_http_lua_shdict_get_zone(L, 1);
+    zone = ngx_http_lua_shdict_get_zone(L, 1); //获取到ngx_shm_zone_t 共享内存类型数据
     if (zone == NULL) {
         return luaL_error(L, "bad \"zone\" argument");
     }
 
-    ctx = zone->data;
+    ctx = zone->data; //ngx_http_lua_shdict_ctx_t
 
     if (lua_isnil(L, 2)) {
         lua_pushnil(L);
