@@ -170,9 +170,9 @@ struct ngx_http_lua_main_conf_s {
     ngx_int_t            regex_match_limit;
 #endif
 
-    ngx_array_t         *shm_zones;  /* of ngx_shm_zone_t* */
+    ngx_array_t         *shm_zones;  /* of ngx_shm_zone_t* */ //共享内存数组
 
-    ngx_array_t         *shdict_zones; /* shm zones of "shdict" */
+    ngx_array_t         *shdict_zones; /* shm zones of "shdict" */ //所有共享字典都串联在此数组上
 
     ngx_array_t         *preload_hooks; /* of ngx_http_lua_preload_hook_t */
 

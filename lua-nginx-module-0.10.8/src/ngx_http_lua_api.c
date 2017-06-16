@@ -88,7 +88,7 @@ ngx_http_lua_shared_memory_add(ngx_conf_t *cf, ngx_str_t *name, size_t size,
     void *tag)
 {
     ngx_http_lua_main_conf_t     *lmcf;
-    ngx_shm_zone_t              **zp;
+    ngx_shm_zone_t              **zp; //zone共享内存的数组指针
     ngx_shm_zone_t               *zone;
     ngx_http_lua_shm_zone_ctx_t  *ctx;
     ngx_int_t                     n;
@@ -111,30 +111,32 @@ ngx_http_lua_shared_memory_add(ngx_conf_t *cf, ngx_str_t *name, size_t size,
             return NULL;
         }
     }
-
+    //此API由nginx自身提供的共享内存创建接口
+    //name是共享字典定义的名称，如lua_shared_dict dog 1m; name是dog
+    //tag标记是&ngx_http_lua_module，ngx_module_t模块定义结构体
     zone = ngx_shared_memory_add(cf, name, (size_t) size, tag);
     if (zone == NULL) {
-        return NULL;
+        return NULL; //申请共享内存失败，直接返回
     }
-
+    //该共享内存已经存在对应的数据，直接返回该共享内存对象
     if (zone->data) {
         ctx = (ngx_http_lua_shm_zone_ctx_t *) zone->data;
         return &ctx->zone;
     }
-
+    //共享内存上下文结构体大小
     n = sizeof(ngx_http_lua_shm_zone_ctx_t);
-
+    //从内存池里申请分配对应大小空间的结构体，初始化
     ctx = ngx_pcalloc(cf->pool, n);
     if (ctx == NULL) {
         return NULL;
     }
-
+    //共享内存上下文 各属性赋值，注意 此时ctx->zone上下文的共享内存对象并未赋值
     ctx->lmcf = lmcf;
     ctx->log = &cf->cycle->new_log;
     ctx->cycle = cf->cycle;
-
+    //对共享内存上下文的共享内存对象进行地址拷贝，指向已申请内存空间的zone
     ngx_memcpy(&ctx->zone, zone, sizeof(ngx_shm_zone_t));
-
+    //将共享内存zone塞进共享内存数组进行管理
     zp = ngx_array_push(lmcf->shm_zones);
     if (zp == NULL) {
         return NULL;
@@ -143,11 +145,11 @@ ngx_http_lua_shared_memory_add(ngx_conf_t *cf, ngx_str_t *name, size_t size,
     *zp = zone;
 
     /* set zone init */
-    zone->init = ngx_http_lua_shared_memory_init;
-    zone->data = ctx;
+    zone->init = ngx_http_lua_shared_memory_init; //指定初始化函数
+    zone->data = ctx; //共享内存的数据指向自定义的数据结构 共享内存上下文ctx--已初始化并赋值
 
-    lmcf->requires_shm = 1;
-
+    lmcf->requires_shm = 1; //标明ngx_lua需要使用共享内存
+    //返回共享内存上下文里的共享内存对象
     return &ctx->zone;
 }
 
