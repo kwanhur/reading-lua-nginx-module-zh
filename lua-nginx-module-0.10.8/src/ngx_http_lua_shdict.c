@@ -77,7 +77,7 @@ ngx_http_lua_shdict_get_list_head(ngx_http_lua_shdict_node_t *sd, size_t len)
                                          NGX_ALIGNMENT);
 }
 
-
+//在ngx_http_lua_api里的ngx_http_lua_shared_memory_init zone->init()调用
 ngx_int_t
 ngx_http_lua_shdict_init_zone(ngx_shm_zone_t *shm_zone, void *data)
 {
@@ -87,34 +87,34 @@ ngx_http_lua_shdict_init_zone(ngx_shm_zone_t *shm_zone, void *data)
     ngx_http_lua_shdict_ctx_t  *ctx;
 
     dd("init zone");
-
+    //共享内存上下文
     ctx = shm_zone->data;
-
+    //支持nginx -s reload
     if (octx) {
         ctx->sh = octx->sh;
         ctx->shpool = octx->shpool;
 
         return NGX_OK;
     }
-
-    ctx->shpool = (ngx_slab_pool_t *) shm_zone->shm.addr;
+    //上下文的共享内存池地址 slab管理器
+    ctx->shpool = (ngx_slab_pool_t *) shm_zone->shm.addr; //shm 真正的共享内存
 
     if (shm_zone->shm.exists) {
         ctx->sh = ctx->shpool->data;
 
         return NGX_OK;
     }
-
+    //上下文的共享内存 共享字典的共享内存上下文【主要用于构建红黑树+LRU队列】
     ctx->sh = ngx_slab_alloc(ctx->shpool, sizeof(ngx_http_lua_shdict_shctx_t));
     if (ctx->sh == NULL) {
         return NGX_ERROR;
     }
-
+    //slab的data成员通常由模块自身决定
     ctx->shpool->data = ctx->sh;
-
+    //红黑树初始化
     ngx_rbtree_init(&ctx->sh->rbtree, &ctx->sh->sentinel,
                     ngx_http_lua_shdict_rbtree_insert_value);
-
+    //初始化lru队列
     ngx_queue_init(&ctx->sh->lru_queue);
 
     len = sizeof(" in lua_shared_dict zone \"\"") + shm_zone->shm.name.len;

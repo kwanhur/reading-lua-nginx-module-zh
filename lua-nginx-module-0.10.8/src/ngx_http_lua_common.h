@@ -191,7 +191,7 @@ struct ngx_http_lua_main_conf_s {
                      * thus it is safe to store the peer data in the main conf.
                      */
 
-    ngx_uint_t                      shm_zones_inited;
+    ngx_uint_t                      shm_zones_inited; //共享内存被初始化了的数量
 
     ngx_http_lua_sema_mm_t         *sema_mm;
 

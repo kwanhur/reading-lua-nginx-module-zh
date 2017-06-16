@@ -54,10 +54,12 @@ typedef struct {
     ngx_shm_zone_t               zone;//指向共享内存对象
 } ngx_http_lua_shm_zone_ctx_t;
 
-
+//共享字典初始化
 ngx_int_t ngx_http_lua_shdict_init_zone(ngx_shm_zone_t *shm_zone, void *data);
+//共享字典插入节点时被调用，初始化时被定义
 void ngx_http_lua_shdict_rbtree_insert_value(ngx_rbtree_node_t *temp,
     ngx_rbtree_node_t *node, ngx_rbtree_node_t *sentinel);
+//注入共享字典各可用方法API
 void ngx_http_lua_inject_shdict_api(ngx_http_lua_main_conf_t *lmcf,
     lua_State *L);
 

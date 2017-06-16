@@ -145,7 +145,7 @@ ngx_http_lua_shared_memory_add(ngx_conf_t *cf, ngx_str_t *name, size_t size,
     *zp = zone;
 
     /* set zone init */
-    zone->init = ngx_http_lua_shared_memory_init; //指定初始化函数
+    zone->init = ngx_http_lua_shared_memory_init; //指定初始化函数 将在ngx_init_cycle里被调用
     zone->data = ctx; //共享内存的数据指向自定义的数据结构 共享内存上下文ctx--已初始化并赋值
 
     lmcf->requires_shm = 1; //标明ngx_lua需要使用共享内存
@@ -161,26 +161,26 @@ ngx_http_lua_shared_memory_init(ngx_shm_zone_t *shm_zone, void *data)
     ngx_shm_zone_t              *ozone;
     void                        *odata;
 
-    ngx_int_t                    rc;
+    ngx_int_t                    rc; //lmcf->init_handler 返回码
     volatile ngx_cycle_t        *saved_cycle;
     ngx_http_lua_main_conf_t    *lmcf;
     ngx_http_lua_shm_zone_ctx_t *ctx;
     ngx_shm_zone_t              *zone;
-
+    //共享内存的数据指向自定义的数据结构，所以可进行类型转换
     ctx = (ngx_http_lua_shm_zone_ctx_t *) shm_zone->data;
-    zone = &ctx->zone;
+    zone = &ctx->zone; //共享内存上下文的共享内存对象
 
     odata = NULL;
-    if (octx) {
+    if (octx) { //源的共享内存上下文 origin ctx 在nginx -s reload时出现该情况，这就是reload不会清空共享字典的真正原因
         ozone = &octx->zone;
         odata = ozone->data;
     }
-
+    //真正的共享内存
     zone->shm = shm_zone->shm;
 #if defined(nginx_version) && nginx_version >= 1009000
     zone->noreuse = shm_zone->noreuse;
 #endif
-
+    //此init就是 ngx_http_lua_shdict_init_zone 在ngx_http_lua_directive的ngx_http_lua_shared_dict被定义
     if (zone->init(zone, odata) != NGX_OK) {
         return NGX_ERROR;
     }
@@ -194,8 +194,8 @@ ngx_http_lua_shared_memory_init(ngx_shm_zone_t *shm_zone, void *data)
 
     dd("lmcf->lua: %p", lmcf->lua);
 
-    lmcf->shm_zones_inited++;
-
+    lmcf->shm_zones_inited++; //每次共享内存初始化后累计
+    //已初始化共享内存数量与登记的共享内存数组元素个数相同，且存在初始化处理器init_by_lua_xxx
     if (lmcf->shm_zones_inited == lmcf->shm_zones->nelts
         && lmcf->init_handler)
     {

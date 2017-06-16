@@ -78,7 +78,7 @@ ngx_http_lua_shared_dict(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_shm_zone_t            **zp;
     ngx_http_lua_shdict_ctx_t  *ctx;
     ssize_t                     size;
-
+    //每一个共享内存字典都被串联在shdict_zones数组里
     if (lmcf->shdict_zones == NULL) {
         lmcf->shdict_zones = ngx_palloc(cf->pool, sizeof(ngx_array_t));
         if (lmcf->shdict_zones == NULL) {
@@ -137,7 +137,7 @@ ngx_http_lua_shared_dict(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         return NGX_CONF_ERROR;
     }
 
-    zone->init = ngx_http_lua_shdict_init_zone;
+    zone->init = ngx_http_lua_shdict_init_zone; //将在ngx_init_cycle里被调用
     zone->data = ctx; //共享内存对象的自定义数据结构 指向共享内存上下文
     //将共享内存对象塞进共享字典数组里进行管理
     zp = ngx_array_push(lmcf->shdict_zones);
