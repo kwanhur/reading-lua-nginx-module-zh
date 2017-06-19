@@ -188,10 +188,10 @@ ngx_http_lua_shdict_lookup(ngx_shm_zone_t *shm_zone, ngx_uint_t hash,
     ngx_http_lua_shdict_ctx_t   *ctx;
     ngx_http_lua_shdict_node_t  *sd;
 
-    ctx = shm_zone->data;
+    ctx = shm_zone->data;//ngx_http_lua_shdict_ctx_t
 
-    node = ctx->sh->rbtree.root;
-    sentinel = ctx->sh->rbtree.sentinel;
+    node = ctx->sh->rbtree.root;//红黑树根节点
+    sentinel = ctx->sh->rbtree.sentinel;//哨兵节点
 
     while (node != sentinel) {
 
@@ -206,7 +206,7 @@ ngx_http_lua_shdict_lookup(ngx_shm_zone_t *shm_zone, ngx_uint_t hash,
         }
 
         /* hash == node->key */
-
+        //红黑树上每个节点保存的数据结构均是ngx_http_lua_shdict_node_t
         sd = (ngx_http_lua_shdict_node_t *) &node->color;
 
         rc = ngx_memn2cmp(kdata, sd->data, klen, (size_t) sd->key_len);
@@ -229,11 +229,11 @@ ngx_http_lua_shdict_lookup(ngx_shm_zone_t *shm_zone, ngx_uint_t hash,
 
                 if (ms < 0) {
                     dd("node already expired");
-                    return NGX_DONE;
+                    return NGX_DONE; //节点已过期
                 }
             }
 
-            return NGX_OK;
+            return NGX_OK; //节点存在且未过期
         }
 
         node = (rc < 0) ? node->left : node->right;
@@ -241,7 +241,7 @@ ngx_http_lua_shdict_lookup(ngx_shm_zone_t *shm_zone, ngx_uint_t hash,
 
     *sdp = NULL;
 
-    return NGX_DECLINED;
+    return NGX_DECLINED; //节点不存在
 }
 
 
@@ -273,24 +273,24 @@ ngx_http_lua_shdict_expire(ngx_http_lua_shdict_ctx_t *ctx, ngx_uint_t n)
             return freed;
         }
 
-        q = ngx_queue_last(&ctx->sh->lru_queue);
+        q = ngx_queue_last(&ctx->sh->lru_queue); //队列末端
 
         sd = ngx_queue_data(q, ngx_http_lua_shdict_node_t, queue);
 
-        if (n++ != 0) {
+        if (n++ != 0) { //清理节点的个数
 
             if (sd->expires == 0) {
                 return freed;
             }
 
-            ms = sd->expires - now;
+            ms = sd->expires - now; //过期剩余时间 毫秒数
             if (ms > 0) {
                 return freed;
             }
         }
-
+        //存在过期节点
         if (sd->value_type == SHDICT_TLIST) {
-            list_queue = ngx_http_lua_shdict_get_list_head(sd, sd->key_len);
+            list_queue = ngx_http_lua_shdict_get_list_head(sd, sd->key_len); //队列头
 
             for (lq = ngx_queue_head(list_queue);
                  lq != ngx_queue_sentinel(list_queue);
@@ -308,7 +308,7 @@ ngx_http_lua_shdict_expire(ngx_http_lua_shdict_ctx_t *ctx, ngx_uint_t n)
         node = (ngx_rbtree_node_t *)
                    ((u_char *) sd - offsetof(ngx_rbtree_node_t, color));
 
-        ngx_rbtree_delete(&ctx->sh->rbtree, node);
+        ngx_rbtree_delete(&ctx->sh->rbtree, node); //红黑树上删除该节点
 
         ngx_slab_free_locked(ctx->shpool, node);
 
@@ -671,7 +671,7 @@ ngx_http_lua_shdict_flush_all(lua_State *L)
          q = ngx_queue_next(q))
     {
         sd = ngx_queue_data(q, ngx_http_lua_shdict_node_t, queue);
-        sd->expires = 1;
+        sd->expires = 1; //标记为过期
     }
 
     ngx_http_lua_shdict_expire(ctx, 0);
@@ -832,7 +832,7 @@ ngx_http_lua_shdict_get_keys(lua_State *L)
         prev = ngx_queue_prev(q);
 
         sd = ngx_queue_data(q, ngx_http_lua_shdict_node_t, queue);
-
+        //未过期
         if (sd->expires == 0 || sd->expires > now) {
             total++;
             if (attempts && total == attempts) {
@@ -849,7 +849,7 @@ ngx_http_lua_shdict_get_keys(lua_State *L)
 
     total = 0;
     q = ngx_queue_last(&ctx->sh->lru_queue);
-
+    //从LRU队列遍历获取对应的key名称
     while (q != ngx_queue_sentinel(&ctx->sh->lru_queue)) {
         prev = ngx_queue_prev(q);
 
@@ -908,7 +908,8 @@ ngx_http_lua_shdict_safe_set(lua_State *L)
     return ngx_http_lua_shdict_set_helper(L, NGX_HTTP_LUA_SHDICT_SAFE_STORE);
 }
 
-
+//用于支持set\safe_set\replace\add\safe_add\delete
+//总体思路：遍历红黑树，找到后（能复用则复用，不能则先删除后插入）；没找到，创建新节点（内存不够？先淘汰），再初始化，插入到红黑树+LRU队列
 static int
 ngx_http_lua_shdict_set_helper(lua_State *L, int flags)
 {
@@ -944,19 +945,19 @@ ngx_http_lua_shdict_set_helper(lua_State *L, int flags)
         return luaL_error(L, "bad \"zone\" argument");
     }
 
-    zone = ngx_http_lua_shdict_get_zone(L, 1); //获取到ngx_shm_zone_t 共享内存类型数据
+    zone = ngx_http_lua_shdict_get_zone(L, 1); //获取到ngx_shm_zone_t 共享内存类型数据 ngx.shared.dog
     if (zone == NULL) {
         return luaL_error(L, "bad \"zone\" argument");
     }
 
     ctx = zone->data; //ngx_http_lua_shdict_ctx_t
-
+    //判断索引号2的值是否为nil，即key是否Nil 是否存在
     if (lua_isnil(L, 2)) {
         lua_pushnil(L);
         lua_pushliteral(L, "nil key");
         return 2;
     }
-
+    //若索引号2的不为空，则返回key.len的字符串
     key.data = (u_char *) luaL_checklstring(L, 2, &key.len);
 
     if (key.len == 0) {
@@ -970,7 +971,7 @@ ngx_http_lua_shdict_set_helper(lua_State *L, int flags)
         lua_pushliteral(L, "key too long");
         return 2;
     }
-
+    //crc循环冗余计算出来的hash值 用于红黑树节点之间的比较 #line 198
     hash = ngx_crc32_short(key.data, key.len);
 
     value_type = lua_type(L, 3);
@@ -1019,11 +1020,11 @@ ngx_http_lua_shdict_set_helper(lua_State *L, int flags)
     if (n == 5) {
         user_flags = (uint32_t) luaL_checkinteger(L, 5);
     }
-
+    //竞争获取独占锁
     ngx_shmtx_lock(&ctx->shpool->mutex);
 
 #if 1
-    ngx_http_lua_shdict_expire(ctx, 1);
+    ngx_http_lua_shdict_expire(ctx, 1); //根据过期时间淘汰1~2个节点
 #endif
 
     rc = ngx_http_lua_shdict_lookup(zone, hash, key.data, key.len, &sd);
@@ -1034,7 +1035,7 @@ ngx_http_lua_shdict_set_helper(lua_State *L, int flags)
 
         if (rc == NGX_DECLINED || rc == NGX_DONE) {
             ngx_shmtx_unlock(&ctx->shpool->mutex);
-
+            //lua层面返回三个结果值 return false,"not found",0
             lua_pushboolean(L, 0);
             lua_pushliteral(L, "not found");
             lua_pushboolean(L, forcible);
@@ -1077,7 +1078,7 @@ ngx_http_lua_shdict_set_helper(lua_State *L, int flags)
         }
 
 replace:
-
+        //值的长度一样，可以直接复用结构，提高效率，且值类型不能是列表
         if (value.data
             && value.len == (size_t) sd->value_len
             && sd->value_type != SHDICT_TLIST)
@@ -1086,12 +1087,12 @@ replace:
             ngx_log_debug0(NGX_LOG_DEBUG_HTTP, ctx->log, 0,
                            "lua shared dict set: found old entry and value "
                            "size matched, reusing it");
-
+            //将节点移动到lru队列头部
             ngx_queue_remove(&sd->queue);
             ngx_queue_insert_head(&ctx->sh->lru_queue, &sd->queue);
 
             sd->key_len = (u_short) key.len;
-
+            //设置过期时间
             if (exptime > 0) {
                 tp = ngx_timeofday();
                 sd->expires = (uint64_t) tp->sec * 1000 + tp->msec
@@ -1128,7 +1129,7 @@ remove:
 
         if (sd->value_type == SHDICT_TLIST) {
             queue = ngx_http_lua_shdict_get_list_head(sd, key.len);
-
+            //遍历队列所有节点，当前值存放在哨兵节点上
             for (q = ngx_queue_head(queue);
                  q != ngx_queue_sentinel(queue);
                  q = ngx_queue_next(q))
@@ -1137,10 +1138,10 @@ remove:
                                               ngx_http_lua_shdict_list_node_t,
                                               queue);
 
-                ngx_slab_free_locked(ctx->shpool, p);
+                ngx_slab_free_locked(ctx->shpool, p); //slab管理器回收内存
             }
         }
-
+        //LRU队列+红黑树 删除节点
         ngx_queue_remove(&sd->queue);
 
         node = (ngx_rbtree_node_t *)
@@ -1155,7 +1156,7 @@ remove:
 insert:
 
     /* rc == NGX_DECLINED or value size unmatch */
-
+    //值内容为空，直接返回
     if (value.data == NULL) {
         ngx_shmtx_unlock(&ctx->shpool->mutex);
 
@@ -1179,7 +1180,7 @@ insert:
     node = ngx_slab_alloc_locked(ctx->shpool, n);
 
     if (node == NULL) {
-
+        //安全操作 直接返回
         if (flags & NGX_HTTP_LUA_SHDICT_SAFE_STORE) {
             ngx_shmtx_unlock(&ctx->shpool->mutex);
 
@@ -1193,6 +1194,7 @@ insert:
                        "due to memory shortage for entry \"%V\"", &key);
 
         for (i = 0; i < 30; i++) {
+            //n=0 进行强制清除
             if (ngx_http_lua_shdict_expire(ctx, 0) == 0) {
                 break;
             }
@@ -1206,7 +1208,7 @@ insert:
         }
 
         ngx_shmtx_unlock(&ctx->shpool->mutex);
-
+        //分配失败 返回结果
         lua_pushboolean(L, 0);
         lua_pushliteral(L, "no memory");
         lua_pushboolean(L, forcible);
@@ -1240,9 +1242,9 @@ allocated:
     p = ngx_copy(sd->data, key.data, key.len);
     ngx_memcpy(p, value.data, value.len);
 
-    ngx_rbtree_insert(&ctx->sh->rbtree, node);
+    ngx_rbtree_insert(&ctx->sh->rbtree, node); //红黑树插入节点
 
-    ngx_queue_insert_head(&ctx->sh->lru_queue, &sd->queue);
+    ngx_queue_insert_head(&ctx->sh->lru_queue, &sd->queue); //LRU队列插入节点
 
     ngx_shmtx_unlock(&ctx->shpool->mutex);
 
