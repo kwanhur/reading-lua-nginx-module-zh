@@ -24,21 +24,21 @@ ngx_http_lua_ngx_get_phase(lua_State *L)
     ngx_http_request_t          *r;
     ngx_http_lua_ctx_t          *ctx;
 
-    r = ngx_http_lua_get_req(L);
+    r = ngx_http_lua_get_req(L); //通过lua vm全局变量获取当前请求
 
     /* If we have no request object, assume we are called from the "init"
      * phase. */
 
     if (r == NULL) {
-        lua_pushliteral(L, "init");
+        lua_pushliteral(L, "init"); //请求为空则认为是初始化阶段
         return 1;
     }
 
-    ctx = ngx_http_get_module_ctx(r, ngx_http_lua_module);
+    ctx = ngx_http_get_module_ctx(r, ngx_http_lua_module); //获取当前lua模块注册的上下文
     if (ctx == NULL) {
         return luaL_error(L, "no request ctx found");
     }
-
+    //ctx->context init at phase initialization
     switch (ctx->context) {
     case NGX_HTTP_LUA_CONTEXT_INIT_WORKER:
         lua_pushliteral(L, "init_worker");
