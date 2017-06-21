@@ -161,14 +161,14 @@ ngx_http_lua_code_cache(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_flag_t       *fp;
     char             *ret;
 
-    ret = ngx_conf_set_flag_slot(cf, cmd, conf);
+    ret = ngx_conf_set_flag_slot(cf, cmd, conf); //设置对应命令的配置 on或off
     if (ret != NGX_CONF_OK) {
         return ret;
     }
 
     fp = (ngx_flag_t *) (p + cmd->offset);
 
-    if (!*fp) {
+    if (!*fp) { //判断是否是on
         ngx_conf_log_error(NGX_LOG_ALERT, cf, 0,
                            "lua_code_cache is off; this will hurt "
                            "performance");
@@ -184,13 +184,13 @@ ngx_http_lua_package_cpath(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_http_lua_main_conf_t *lmcf = conf;
     ngx_str_t                *value;
 
-    if (lmcf->lua_cpath.len != 0) {
+    if (lmcf->lua_cpath.len != 0) { //重复设置判断
         return "is duplicate";
     }
 
     dd("enter");
 
-    value = cf->args->elts;
+    value = cf->args->elts; //从nginx configuration对象里获取参数列表的值元素
 
     lmcf->lua_cpath.len = value[1].len;
     lmcf->lua_cpath.data = value[1].data;
@@ -229,7 +229,7 @@ ngx_http_lua_set_by_lua_block(ngx_conf_t *cf, ngx_command_t *cmd,
     ngx_conf_t   save;
 
     save = *cf;
-    cf->handler = ngx_http_lua_set_by_lua;
+    cf->handler = ngx_http_lua_set_by_lua; //设置对应的处理函数
     cf->handler_conf = conf;
 
     rv = ngx_http_lua_conf_lua_block_parse(cf, cmd);
@@ -1112,7 +1112,7 @@ ngx_http_lua_init_by_lua(ngx_conf_t *cf, ngx_command_t *cmd,
     dd("enter");
 
     /*  must specify a content handler */
-    if (cmd->post == NULL) {
+    if (cmd->post == NULL) { //配置项解析后的回调函数
         return NGX_CONF_ERROR;
     }
 
@@ -1132,13 +1132,14 @@ ngx_http_lua_init_by_lua(ngx_conf_t *cf, ngx_command_t *cmd,
     lmcf->init_handler = (ngx_http_lua_main_conf_handler_pt) cmd->post;
 
     if (cmd->post == ngx_http_lua_init_by_file) {
+        //value[1].data 是指定的lua文件路径 相对路径或绝对路径
         name = ngx_http_lua_rebase_path(cf->pool, value[1].data,
                                         value[1].len);
         if (name == NULL) {
             return NGX_CONF_ERROR;
         }
 
-        lmcf->init_src.data = name;
+        lmcf->init_src.data = name; //获取到全路径文件名，便于在后续回调函数中加载lua文件
         lmcf->init_src.len = ngx_strlen(name);
 
     } else {
@@ -1304,7 +1305,7 @@ ngx_http_lua_conf_lua_block_parse(ngx_conf_t *cf, ngx_command_t *cmd)
         parse_block = 0,
         parse_param
     } type;
-
+    //判断配置是文件块还是参数列表
     if (cf->conf_file->file.fd != NGX_INVALID_FILE) {
 
         type = parse_block;

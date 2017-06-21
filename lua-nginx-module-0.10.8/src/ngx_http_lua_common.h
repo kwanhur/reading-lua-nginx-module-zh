@@ -179,8 +179,8 @@ struct ngx_http_lua_main_conf_s {
     ngx_flag_t           postponed_to_rewrite_phase_end;
     ngx_flag_t           postponed_to_access_phase_end;
 
-    ngx_http_lua_main_conf_handler_pt    init_handler;
-    ngx_str_t                            init_src;
+    ngx_http_lua_main_conf_handler_pt    init_handler; //初始化处理函数
+    ngx_str_t                            init_src; //初始化的lua代码
 
     ngx_http_lua_main_conf_handler_pt    init_worker_handler;
     ngx_str_t                            init_worker_src;

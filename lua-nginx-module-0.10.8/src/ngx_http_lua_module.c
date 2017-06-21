@@ -585,7 +585,7 @@ static ngx_command_t ngx_http_lua_cmds[] = {
 
 ngx_http_module_t ngx_http_lua_module_ctx = {
     NULL,                             /*  preconfiguration */
-    ngx_http_lua_init,                /*  postconfiguration */
+    ngx_http_lua_init,                /*  postconfiguration */ //解析完nginx.conf配置文件后 进行调用
 
     ngx_http_lua_create_main_conf,    /*  create main configuration */
     ngx_http_lua_init_main_conf,      /*  init main configuration */
@@ -599,10 +599,10 @@ ngx_http_module_t ngx_http_lua_module_ctx = {
 
 //模块定义结构体
 ngx_module_t ngx_http_lua_module = {
-    NGX_MODULE_V1,
-    &ngx_http_lua_module_ctx,   /*  module context */
-    ngx_http_lua_cmds,          /*  module directives */
-    NGX_HTTP_MODULE,            /*  module type */
+    NGX_MODULE_V1, //#define NGX_MODULE_V1    0, 0, 0, 0, 0, 0, 1         //该宏用来初始化前7个字段
+    &ngx_http_lua_module_ctx,   /*  module context */ //该模块的上下文，每个种类的模块有不同的上下文
+    ngx_http_lua_cmds,          /*  module directives */ //该模块的命令集，指向一个ngx_command_t结构数组
+    NGX_HTTP_MODULE,            /*  module type */ //该模块的种类，为core/event/http/mail中的一种
     NULL,                       /*  init master */
     NULL,                       /*  init module */
     ngx_http_lua_init_worker,   /*  init process */
@@ -610,10 +610,41 @@ ngx_module_t ngx_http_lua_module = {
     NULL,                       /*  exit thread */
     NULL,                       /*  exit process */
     NULL,                       /*  exit master */
-    NGX_MODULE_V1_PADDING
+    NGX_MODULE_V1_PADDING //#define NGX_MODULE_V1_PADDING 0, 0, 0, 0, 0, 0, 0, 0 //该宏用来初始化最后8个字段
 };
+/*
+typedef enum {
+    //读取请求phase
+    NGX_HTTP_POST_READ_PHASE = 0,                       //第一个
 
+    //开始处理
+    //这个阶段主要是处理全局的(server block)的rewrite
+    NGX_HTTP_SERVER_REWRITE_PHASE,
 
+    //这个阶段主要是通过uri来查找对应的location。然后将uri和location的数据关联起来
+    NGX_HTTP_FIND_CONFIG_PHASE,
+
+    //这个主要处理location的rewrite。
+    NGX_HTTP_REWRITE_PHASE,
+    //post rewrite，这个主要是进行一些校验以及收尾工作，以便于交给后面的模块。
+    NGX_HTTP_POST_REWRITE_PHASE,
+
+    //比如流控这种类型的access就放在这个phase，也就是说它主要是进行一些比较粗粒度的access。
+    NGX_HTTP_PREACCESS_PHASE,
+    //这个比如存取控制，权限验证就放在这个phase，一般来说处理动作是交给下面的模块做的.这个主要是做一些细粒度的access。
+    NGX_HTTP_ACCESS_PHASE,
+    //当上面的access模块得到access_code之后就会由这个模块根据access_code来进行操作
+    NGX_HTTP_POST_ACCESS_PHASE,
+    //try_file模块，也就是对应配置文件中的try_files指令。
+    NGX_HTTP_TRY_FILES_PHASE,
+    //内容处理模块，我们一般的handle都是处于这个模块,比如说模块扩展也将是该phase, 默认调用ngx_http_autoindex_module.c中的ngx_http_autoindex_handler handler
+    NGX_HTTP_CONTENT_PHASE,
+    //log模块
+    NGX_HTTP_LOG_PHASE
+} ngx_http_phases;
+*/
+
+//配置项API文档 https://www.nginx.com/resources/wiki/extending/api/configuration/
 static ngx_int_t
 ngx_http_lua_init(ngx_conf_t *cf)
 {
@@ -628,7 +659,7 @@ ngx_http_lua_init(ngx_conf_t *cf)
     ngx_pool_cleanup_t         *cln;
 #endif
 
-    lmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_lua_module);//lua_module_conf
+    lmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_lua_module);//lua_module_conf 从configuration配置对象获取http_lua模块的配置项
 
     if (ngx_http_lua_prev_cycle != ngx_cycle) {
         ngx_http_lua_prev_cycle = ngx_cycle;
@@ -656,6 +687,7 @@ ngx_http_lua_init(ngx_conf_t *cf)
     cmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_core_module);//core_module_conf
 
     if (lmcf->requires_rewrite) {
+        //返回数组中可添加元素的指针位置
         h = ngx_array_push(&cmcf->phases[NGX_HTTP_REWRITE_PHASE].handlers);//添加lua_rewrite_by_xxx
         if (h == NULL) {
             return NGX_ERROR;
@@ -707,13 +739,13 @@ ngx_http_lua_init(ngx_conf_t *cf)
 
 #ifndef NGX_LUA_NO_FFI_API
     /* add the cleanup of semaphores after the lua_close */
-    cln = ngx_pool_cleanup_add(cf->pool, 0);
+    cln = ngx_pool_cleanup_add(cf->pool, 0); //添加多一种清理器
     if (cln == NULL) {
         return NGX_ERROR;
     }
 
     cln->data = lmcf;
-    cln->handler = ngx_http_lua_sema_mm_cleanup;
+    cln->handler = ngx_http_lua_sema_mm_cleanup; //内存池对应的清理结构中对应的处理器
 #endif
 
     if (lmcf->lua == NULL) {

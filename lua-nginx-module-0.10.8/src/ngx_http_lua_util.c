@@ -129,7 +129,16 @@ static int ngx_http_lua_get_raw_phase_context(lua_State *L);
 
 #define AUX_MARK "\1"
 
+/*
+Lua栈操作：
+当索引为正值时，表示从栈底的索引，从1开始。
 
+当索引为负值时，表示从栈顶的索引，从-1开始。
+
+pop remove等操作时设定的索引 是相对于栈顶
+栈底 10 20 30 40 50 *栈顶
+lua_remove(-3):10 20 40 50 *
+*/
 static void
 ngx_http_lua_set_path(ngx_cycle_t *cycle, lua_State *L, int tab_idx,
     const char *fieldname, const char *path, const char *default_path,
@@ -140,33 +149,35 @@ ngx_http_lua_set_path(ngx_cycle_t *cycle, lua_State *L, int tab_idx,
 
     /* XXX here we use some hack to simplify string manipulation */
     tmp_path = luaL_gsub(L, path, LUA_PATH_SEP LUA_PATH_SEP,
-                         LUA_PATH_SEP AUX_MARK LUA_PATH_SEP);
-
-    lua_pushlstring(L, (char *) cycle->prefix.data, cycle->prefix.len);
+                         LUA_PATH_SEP AUX_MARK LUA_PATH_SEP); //替换后的值放在栈顶 // stack: ... package path path.data tmp_path *
+    //将nginx启动时的prefix路径进栈
+    lua_pushlstring(L, (char *) cycle->prefix.data, cycle->prefix.len);//此时 -1是prefix -2是tmp_path
     prefix = lua_tostring(L, -1);
-    tmp_path = luaL_gsub(L, tmp_path, "$prefix", prefix);
-    tmp_path = luaL_gsub(L, tmp_path, "${prefix}", prefix);
-    lua_pop(L, 3);
+    tmp_path = luaL_gsub(L, tmp_path, "$prefix", prefix); //栈顶
+    tmp_path = luaL_gsub(L, tmp_path, "${prefix}", prefix); //栈顶
+    // stack: ... package path path.data tmp_path prefix tmp_path tmp_path *
+    lua_pop(L, 3); //三个全出栈-被置为nil 就是2个tmp_path+prefix被置空
+    // stack: ... package path path.data tmp_path *
 
-    dd("tmp_path path: %s", tmp_path);
+    dd("tmp_path path: %s", tmp_path); //tmp_path已合并path\new_path\prefix替换
 
 #if (NGX_DEBUG)
     tmp_path =
 #else
     (void)
 #endif
-        luaL_gsub(L, tmp_path, AUX_MARK, default_path);
+        luaL_gsub(L, tmp_path, AUX_MARK, default_path); //stack: ... package path path.data tmp_path default *
 
 #if (NGX_DEBUG)
     ngx_log_debug2(NGX_LOG_DEBUG_HTTP, log, 0,
                    "lua setting lua package.%s to \"%s\"", fieldname, tmp_path);
 #endif
 
-    lua_remove(L, -2);
+    lua_remove(L, -2); // stack: ... package path path.data default *
 
     /* fix negative index as there's new data on stack */
     tab_idx = (tab_idx < 0) ? (tab_idx - 1) : tab_idx;
-    lua_setfield(L, tab_idx, fieldname);
+    lua_setfield(L, tab_idx, fieldname); //pacakage[path] = default //stack: ... package path path.data *
 }
 
 
@@ -185,7 +196,7 @@ ngx_http_lua_create_new_globals_table(lua_State *L, int narr, int nrec)
     lua_setfield(L, -2, "_G");
 }
 
-
+//创建新的lua vm
 static lua_State *
 ngx_http_lua_new_state(lua_State *parent_vm, ngx_cycle_t *cycle,
     ngx_http_lua_main_conf_t *lmcf, ngx_log_t *log)
@@ -200,29 +211,29 @@ ngx_http_lua_new_state(lua_State *parent_vm, ngx_cycle_t *cycle,
 
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, log, 0, "lua creating new vm state");
 
-    L = luaL_newstate();
+    L = luaL_newstate(); //创建Lua state并设定panic函数（将错误信息输出到标准错误）
     if (L == NULL) {
         return NULL;
     }
 
-    luaL_openlibs(L);
-
-    lua_getglobal(L, "package");
-
+    luaL_openlibs(L); //将标准Lua库注入到state
+    //相当于#define lua_getglobal(L,s)  lua_getfield(L, LUA_GLOBALSINDEX, s)
+    lua_getglobal(L, "package"); //全局变量package放置在栈顶
+    //判断索引-1的变量package是否是table类型
     if (!lua_istable(L, -1)) {
         ngx_log_error(NGX_LOG_EMERG, log, 0,
                       "the \"package\" table does not exist");
         return NULL;
     }
-
+    //初始化时parent_vm为NULL
     if (parent_vm) {
-        lua_getglobal(parent_vm, "package");
-        lua_getfield(parent_vm, -1, "path");
+        lua_getglobal(parent_vm, "package"); //stack: ... package *
+        lua_getfield(parent_vm, -1, "path"); //stack: ... package path *
         old_path = lua_tolstring(parent_vm, -1, &old_path_len);
-        lua_pop(parent_vm, 1);
+        lua_pop(parent_vm, 1); //package
 
-        lua_pushlstring(L, old_path, old_path_len);
-        lua_setfield(L, -2, "path");
+        lua_pushlstring(L, old_path, old_path_len); //stack: ... package path *
+        lua_setfield(L, -2, "path"); //stack: ... package *
 
         lua_getfield(parent_vm, -1, "cpath");
         old_path = lua_tolstring(parent_vm, -1, &old_path_len);
@@ -238,11 +249,11 @@ ngx_http_lua_new_state(lua_State *parent_vm, ngx_cycle_t *cycle,
                        "lua prepending default package.path with %s",
                        LUA_DEFAULT_PATH);
 
-        lua_pushliteral(L, LUA_DEFAULT_PATH ";"); /* package default */
-        lua_getfield(L, -2, "path"); /* package default old */
+        lua_pushliteral(L, LUA_DEFAULT_PATH ";"); /* package default */ //stack: ... package default *
+        lua_getfield(L, -2, "path"); /* package default old */ //stack: ... package default path *
         old_path = lua_tolstring(L, -1, &old_path_len);
-        lua_concat(L, 2); /* package new */
-        lua_setfield(L, -2, "path"); /* package */
+        lua_concat(L, 2); /* package new */ //stack: ... package old_path *
+        lua_setfield(L, -2, "path"); /* package */ //stack: ... package *
 #endif
 
 #ifdef LUA_DEFAULT_CPATH
@@ -257,21 +268,21 @@ ngx_http_lua_new_state(lua_State *parent_vm, ngx_cycle_t *cycle,
         lua_concat(L, 2); /* package new */
         lua_setfield(L, -2, "cpath"); /* package */
 #endif
-
+        //当前栈情况：package *
         if (lmcf->lua_path.len != 0) {
-            lua_getfield(L, -1, "path"); /* get original package.path */
-            old_path = lua_tolstring(L, -1, &old_path_len);
+            lua_getfield(L, -1, "path"); /* get original package.path */ //栈顶元素package获取字段path的值 且放置在栈顶: stack: ... package path *
+            old_path = lua_tolstring(L, -1, &old_path_len); //The Lua value must be a string or a number; otherwise, the function returns NULL
 
             dd("old path: %s", old_path);
 
             lua_pushlstring(L, (char *) lmcf->lua_path.data,
-                            lmcf->lua_path.len);
+                            lmcf->lua_path.len); // stack: ... package path path.data *
             new_path = lua_tostring(L, -1);
 
             ngx_http_lua_set_path(cycle, L, -3, "path", new_path, old_path,
                                   log);
-
-            lua_pop(L, 2);
+            //处理后的栈：stack: ... package path path.data *
+            lua_pop(L, 2); //stack: ... package *
         }
 
         if (lmcf->lua_cpath.len != 0) {
@@ -383,7 +394,7 @@ ngx_http_lua_rebase_path(ngx_pool_t *pool, u_char *src, size_t len)
 
     p = ngx_copy(dst.data, src, len);
     *p = '\0';
-
+    //根据路径（相对路径||绝对路径）获取全路径名称
     if (ngx_get_full_name(pool, (ngx_str_t *) &ngx_cycle->prefix, &dst)
         != NGX_OK)
     {
@@ -3700,7 +3711,7 @@ ngx_http_lua_close_fake_connection(ngx_connection_t *c)
     }
 }
 
-
+//初始化lua vm虚拟机
 lua_State *
 ngx_http_lua_init_vm(lua_State *parent_vm, ngx_cycle_t *cycle,
     ngx_pool_t *pool, ngx_http_lua_main_conf_t *lmcf, ngx_log_t *log,
