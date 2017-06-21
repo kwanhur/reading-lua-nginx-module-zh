@@ -45,8 +45,9 @@ ngx_http_lua_inject_http_consts(lua_State *L)
 {
     /* {{{ HTTP status constants */
     /* 注册HTTP方法常量，使用方式如ngx.HTTP_GET*/
-    lua_pushinteger(L, NGX_HTTP_GET);
-    lua_setfield(L, -2, "HTTP_GET");
+    // stack: ... ngx *
+    lua_pushinteger(L, NGX_HTTP_GET); //stack: ... ngx NGX_HTTP_GET *
+    lua_setfield(L, -2, "HTTP_GET"); // ngx.HTTP_GET = NGX_HTTP_GET stack:// ... ngx * 所以看到设定字段时索引全部为-2
 
     lua_pushinteger(L, NGX_HTTP_POST);
     lua_setfield(L, -2, "HTTP_POST");

@@ -32,6 +32,8 @@ static void ngx_http_lua_inject_log_consts(lua_State *L);
 int
 ngx_http_lua_ngx_log(lua_State *L)
 {
+    //用法 ngx.log(ngx.NOTICE, 'hello, ngx_lua!!')
+    //stack: ... msg level *
     ngx_log_t                   *log;
     ngx_http_request_t          *r;
     const char                  *msg;
@@ -45,11 +47,11 @@ ngx_http_lua_ngx_log(lua_State *L)
     } else {
         log = ngx_cycle->log;
     }
-
+    //检查栈顶元素 日志级别是否设置正确
     level = luaL_checkint(L, 1);
     if (level < NGX_LOG_STDERR || level > NGX_LOG_DEBUG) {
         msg = lua_pushfstring(L, "bad log level: %d", level);
-        return luaL_argerror(L, 1, msg);
+        return luaL_argerror(L, 1, msg); //返回提示错误信息
     }
 
     /* remove log-level param from stack */
@@ -88,7 +90,7 @@ ngx_http_lua_print(lua_State *L)
 static int
 log_wrapper(ngx_log_t *log, const char *ident, ngx_uint_t level,
     lua_State *L)
-{
+{ //stack: ... msg *
     u_char              *buf;
     u_char              *p, *q;
     ngx_str_t            name;
@@ -107,10 +109,10 @@ log_wrapper(ngx_log_t *log, const char *ident, ngx_uint_t level,
     /* add debug info */
 
     lua_getstack(L, 1, &ar);
-    lua_getinfo(L, "Snl", &ar);
+    lua_getinfo(L, "Snl", &ar); //获取源码 行号 名称 等信息
 
     /* get the basename of the Lua source file path, stored in q */
-    name.data = (u_char *) ar.short_src;
+    name.data = (u_char *) ar.short_src; //源码文件名
     if (name.data == NULL) {
         name.len = 0;
 
@@ -123,12 +125,12 @@ log_wrapper(ngx_log_t *log, const char *ident, ngx_uint_t level,
             p++;
         }
 
-        name.len = p - name.data;
+        name.len = p - name.data; //文件名的长度
     }
 
 #endif
 
-    nargs = lua_gettop(L);
+    nargs = lua_gettop(L); //获取栈上的元素总个数
 
     size = name.len + NGX_INT_T_LEN + sizeof(":: ") - 1;
 
@@ -186,17 +188,17 @@ log_wrapper(ngx_log_t *log, const char *ident, ngx_uint_t level,
         }
     }
 
-    buf = lua_newuserdata(L, size);
+    buf = lua_newuserdata(L, size); //分配具体日志内容的长度大小的内存
 
-    p = ngx_copy(buf, name.data, name.len);
+    p = ngx_copy(buf, name.data, name.len); //先是文件名称
 
     *p++ = ':';
 
     p = ngx_snprintf(p, NGX_INT_T_LEN, "%d",
-                     ar.currentline ? ar.currentline : ar.linedefined);
+                     ar.currentline ? ar.currentline : ar.linedefined); //当前代码行号
 
     *p++ = ':'; *p++ = ' ';
-
+    //以下拼接日志内容
     if (*ar.namewhat != '\0' && *ar.what == 'L') {
         p = ngx_copy(p, ar.name, src_len);
         *p++ = '(';
@@ -260,7 +262,7 @@ log_wrapper(ngx_log_t *log, const char *ident, ngx_uint_t level,
         return luaL_error(L, "buffer error: %d > %d", (int) (p - buf),
                           (int) size);
     }
-
+    //通过nginx提供的日志接口写日志内容到指定文件
     ngx_log_error(level, log, 0, "%s%*s", ident, (size_t) (p - buf), buf);
 
     return 0;
@@ -271,9 +273,9 @@ void
 ngx_http_lua_inject_log_api(lua_State *L)
 {
     ngx_http_lua_inject_log_consts(L);
-
+    //stack: ... ngx *
     lua_pushcfunction(L, ngx_http_lua_ngx_log);
-    lua_setfield(L, -2, "log");
+    lua_setfield(L, -2, "log"); //ngx.log = ngx_http_lua_ngx_log()
 
     lua_pushcfunction(L, ngx_http_lua_print);
     lua_setglobal(L, "print");

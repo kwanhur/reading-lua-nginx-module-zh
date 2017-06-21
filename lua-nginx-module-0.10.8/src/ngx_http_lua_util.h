@@ -342,9 +342,9 @@ ngx_http_lua_get_req(lua_State *L)
 {
     ngx_http_request_t    *r;
 
-    lua_getglobal(L, ngx_http_lua_req_key);
-    r = lua_touserdata(L, -1);
-    lua_pop(L, 1);
+    lua_getglobal(L, ngx_http_lua_req_key); //宏变量 __ngx_req 全局变量放置在栈顶
+    r = lua_touserdata(L, -1);//类型转换
+    lua_pop(L, 1); //剔除栈顶元素 __ngx_req
 
     return r;
 }
@@ -354,7 +354,7 @@ static ngx_inline void
 ngx_http_lua_set_req(lua_State *L, ngx_http_request_t *r)
 {
     lua_pushlightuserdata(L, r);
-    lua_setglobal(L, ngx_http_lua_req_key);
+    lua_setglobal(L, ngx_http_lua_req_key); //设置全局变量__ngx_req 值是request实例
 }
 
 

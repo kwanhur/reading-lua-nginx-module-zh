@@ -306,7 +306,7 @@ ngx_http_lua_new_state(lua_State *parent_vm, ngx_cycle_t *cycle,
     lua_pop(L, 1); /* remove the "package" table */
 
     ngx_http_lua_init_registry(L, log);
-    ngx_http_lua_init_globals(L, cycle, lmcf, log);
+    ngx_http_lua_init_globals(L, cycle, lmcf, log); //初始化所有全局变量、API函数注入
 
     return L;
 }
@@ -706,13 +706,13 @@ ngx_http_lua_init_globals(lua_State *L, ngx_cycle_t *cycle,
                    "lua initializing lua globals");
 
     lua_pushlightuserdata(L, cycle);
-    lua_setglobal(L, "__ngx_cycle");
+    lua_setglobal(L, "__ngx_cycle"); //将ngx_cycle信息作为全局变量
 
 #if defined(NDK) && NDK
     ngx_http_lua_inject_ndk_api(L);
 #endif /* defined(NDK) && NDK */
 
-    ngx_http_lua_inject_ngx_api(L, lmcf, log);
+    ngx_http_lua_inject_ngx_api(L, lmcf, log); //API操作注入
 }
 
 
@@ -720,12 +720,12 @@ static void
 ngx_http_lua_inject_ngx_api(lua_State *L, ngx_http_lua_main_conf_t *lmcf,
     ngx_log_t *log)
 {
-    lua_createtable(L, 0 /* narr */, 116 /* nrec */);    /* ngx.* */
+    lua_createtable(L, 0 /* narr */, 116 /* nrec */);    /* ngx.* */ //stack: ... ngx * 所有API注入结束后设定该table对应名称ngx
 
-    lua_pushcfunction(L, ngx_http_lua_get_raw_phase_context);
-    lua_setfield(L, -2, "_phase_ctx");
+    lua_pushcfunction(L, ngx_http_lua_get_raw_phase_context); //stack: ... ngx func * 主要用于获取当前运行的phase阶段
+    lua_setfield(L, -2, "_phase_ctx"); //tbl[_phase_ctx]=func stack: ... ngx *
 
-    ngx_http_lua_inject_arg_api(L);
+    ngx_http_lua_inject_arg_api(L); //注入ngx.arg相关操作API
 
     ngx_http_lua_inject_http_consts(L);
     ngx_http_lua_inject_core_consts(L);
@@ -763,7 +763,7 @@ ngx_http_lua_inject_ngx_api(lua_State *L, ngx_http_lua_main_conf_t *lmcf,
     lua_setfield(L, -2, "ngx"); /* ngx package loaded */
     lua_pop(L, 2);
 
-    lua_setglobal(L, "ngx");
+    lua_setglobal(L, "ngx"); //设定全局变量ngx = table....
 
     ngx_http_lua_inject_coroutine_api(log, L);
 }
@@ -2898,22 +2898,22 @@ ngx_http_lua_traceback(lua_State *L)
 static void
 ngx_http_lua_inject_arg_api(lua_State *L)
 {
-    lua_pushliteral(L, "arg");
-    lua_newtable(L);    /*  .arg table aka {} */
+    lua_pushliteral(L, "arg"); //stack: ... tbl(ngx) arg *
+    lua_newtable(L);    /*  .arg table aka {} */ //stack: ... tbl arg atable *
 
-    lua_createtable(L, 0 /* narr */, 2 /* nrec */);    /*  the metatable */
+    lua_createtable(L, 0 /* narr */, 2 /* nrec */);    /*  the metatable */ //stack: ... tbl arg atable mt *
 
-    lua_pushcfunction(L, ngx_http_lua_param_get);
-    lua_setfield(L, -2, "__index");
+    lua_pushcfunction(L, ngx_http_lua_param_get); //stack: ... tbl arg atable mt get_func *
+    lua_setfield(L, -2, "__index"); //mt[__index] = get_func //stack: ... tbl arg atable mt *
 
     lua_pushcfunction(L, ngx_http_lua_param_set);
-    lua_setfield(L, -2, "__newindex");
+    lua_setfield(L, -2, "__newindex"); //mt[__newindex] = set_func
 
-    lua_setmetatable(L, -2);    /*  tie the metatable to param table */
+    lua_setmetatable(L, -2);    /*  tie the metatable to param table */ //stack: ... tbl arg atable *
 
     dd("top: %d, type -1: %s", lua_gettop(L), luaL_typename(L, -1));
 
-    lua_rawset(L, -3);    /*  set ngx.arg table */
+    lua_rawset(L, -3);    /*  set ngx.arg table */ //tbl[arg] = atable //stack: ... tbl *
 }
 
 
@@ -4026,7 +4026,7 @@ ngx_http_lua_get_raw_phase_context(lua_State *L)
         return 0;
     }
 
-    lua_pushinteger(L, (int) ctx->context);
+    lua_pushinteger(L, (int) ctx->context); //当前上下文phase的标识，在每个phase都会设置context 使用的是ngx_http_lua_common.h里的宏变量NGX_HTTP_LUA_CONTEXT_XXX
     return 1;
 }
 
