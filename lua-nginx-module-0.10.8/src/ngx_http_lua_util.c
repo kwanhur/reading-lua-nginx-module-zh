@@ -404,7 +404,7 @@ ngx_http_lua_rebase_path(ngx_pool_t *pool, u_char *src, size_t len)
     return dst.data;
 }
 
-
+//发送响应头信息给客户端
 ngx_int_t
 ngx_http_lua_send_header_if_needed(ngx_http_request_t *r,
     ngx_http_lua_ctx_t *ctx)
@@ -412,7 +412,7 @@ ngx_http_lua_send_header_if_needed(ngx_http_request_t *r,
     ngx_int_t            rc;
 
     dd("send header if needed: %d", r->header_sent || ctx->header_sent);
-
+    //响应头未发送
     if (!r->header_sent && !ctx->header_sent) {
         if (r->headers_out.status == 0) {
             r->headers_out.status = NGX_HTTP_OK;
@@ -421,7 +421,7 @@ ngx_http_lua_send_header_if_needed(ngx_http_request_t *r,
         if (!ctx->headers_set && ngx_http_lua_set_content_type(r) != NGX_OK) {
             return NGX_ERROR;
         }
-
+        //未设置自定义响应头
         if (!ctx->headers_set) {
             ngx_http_clear_content_length(r);
             ngx_http_clear_accept_ranges(r);
@@ -730,7 +730,7 @@ ngx_http_lua_inject_ngx_api(lua_State *L, ngx_http_lua_main_conf_t *lmcf,
     ngx_http_lua_inject_http_consts(L);
     ngx_http_lua_inject_core_consts(L);
 
-    ngx_http_lua_inject_log_api(L);
+    ngx_http_lua_inject_log_api(L); //注入ngx.log API
     ngx_http_lua_inject_output_api(L);
     ngx_http_lua_inject_time_api(L);
     ngx_http_lua_inject_string_api(L);

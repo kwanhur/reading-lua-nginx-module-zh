@@ -93,7 +93,7 @@ extern char ngx_http_lua_headers_metatable_key;
                                                  "ssl_session_fetch_by_lua*" \
      : "(unknown)")
 
-
+//用于检测操作ngx的API在当前阶段是否可用
 #define ngx_http_lua_check_context(L, ctx, flags)                            \
     if (!((ctx)->context & (flags))) {                                       \
         return luaL_error(L, "API disabled in the context of %s",            \
@@ -391,7 +391,7 @@ ngx_http_lua_hash_str(u_char *src, size_t n)
     return key;
 }
 
-
+//设置响应头部的内容类型
 static ngx_inline ngx_int_t
 ngx_http_lua_set_content_type(ngx_http_request_t *r)
 {

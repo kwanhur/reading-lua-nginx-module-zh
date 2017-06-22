@@ -65,7 +65,7 @@ ngx_http_lua_ngx_echo(lua_State *L, unsigned newline)
     ngx_http_lua_check_context(L, ctx, NGX_HTTP_LUA_CONTEXT_REWRITE
                                | NGX_HTTP_LUA_CONTEXT_ACCESS
                                | NGX_HTTP_LUA_CONTEXT_CONTENT);
-
+    //是否要求是原生的请求socket套接字 有可能客户端断开导致socket丢失？？
     if (ctx->acquired_raw_req_socket) {
         lua_pushnil(L);
         lua_pushliteral(L, "raw request socket acquired");
@@ -77,16 +77,16 @@ ngx_http_lua_ngx_echo(lua_State *L, unsigned newline)
         lua_pushliteral(L, "header only");
         return 2;
     }
-
+    //最后一节缓冲区是否已发送
     if (ctx->eof) {
         lua_pushnil(L);
         lua_pushliteral(L, "seen eof");
         return 2;
     }
-
+    //输出元素的总数量 ngx.say('.......')
     nargs = lua_gettop(L);
     size = 0;
-
+    //计算出输出内容的大小，以复用||申请对应大小的内存 以将内容推送至buffer缓冲区
     for (i = 1; i <= nargs; i++) {
 
         type = lua_type(L, i);
@@ -158,7 +158,7 @@ ngx_http_lua_ngx_echo(lua_State *L, unsigned newline)
         return 1;
     }
 
-    ctx->seen_body_data = 1;
+    ctx->seen_body_data = 1; //标识存在body内容需发送给客户端
 
     cl = ngx_http_lua_chain_get_free_buf(r->connection->log, r->pool,
                                          &ctx->free_bufs, size);
@@ -167,7 +167,7 @@ ngx_http_lua_ngx_echo(lua_State *L, unsigned newline)
         return luaL_error(L, "no memory");
     }
 
-    b = cl->buf;
+    b = cl->buf; //可用的缓冲区
 
     for (i = 1; i <= nargs; i++) {
         type = lua_type(L, i);
@@ -216,7 +216,7 @@ ngx_http_lua_ngx_echo(lua_State *L, unsigned newline)
                 return luaL_error(L, "impossible to reach here");
         }
     }
-
+    //ngx.say时需要增加换行
     if (newline) {
         *b->last++ = '\n';
     }
@@ -229,7 +229,7 @@ ngx_http_lua_ngx_echo(lua_State *L, unsigned newline)
 
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    newline ? "lua say response" : "lua print response");
-
+    //发送数据给下游客户端
     rc = ngx_http_lua_send_chain_link(r, ctx, cl);
 
     if (rc == NGX_ERROR || rc >= NGX_HTTP_SPECIAL_RESPONSE) {
@@ -241,7 +241,7 @@ ngx_http_lua_ngx_echo(lua_State *L, unsigned newline)
     dd("downstream write: %d, buf len: %d", (int) rc,
        (int) (b->last - b->pos));
 
-    lua_pushinteger(L, 1);
+    lua_pushinteger(L, 1); //return true
     return 1;
 }
 
@@ -659,21 +659,21 @@ ngx_http_lua_ngx_eof(lua_State *L)
 
 void
 ngx_http_lua_inject_output_api(lua_State *L)
-{
+{ //stack: ... ngx *
     lua_pushcfunction(L, ngx_http_lua_ngx_send_headers);
-    lua_setfield(L, -2, "send_headers");
+    lua_setfield(L, -2, "send_headers"); //local ok, err = ngx.send_headers()
 
     lua_pushcfunction(L, ngx_http_lua_ngx_print);
-    lua_setfield(L, -2, "print");
+    lua_setfield(L, -2, "print");//ngx.print()
 
     lua_pushcfunction(L, ngx_http_lua_ngx_say);
-    lua_setfield(L, -2, "say");
+    lua_setfield(L, -2, "say");//ngx.say()
 
     lua_pushcfunction(L, ngx_http_lua_ngx_flush);
-    lua_setfield(L, -2, "flush");
+    lua_setfield(L, -2, "flush");//ngx.flush()
 
     lua_pushcfunction(L, ngx_http_lua_ngx_eof);
-    lua_setfield(L, -2, "eof");
+    lua_setfield(L, -2, "eof");//ngx.eof()
 }
 
 
@@ -696,7 +696,7 @@ ngx_http_lua_ngx_send_headers(lua_State *L)
     if (ctx == NULL) {
         return luaL_error(L, "no ctx found");
     }
-
+    //ngx.ctx 只允许在rewrite\access\content phase使用
     ngx_http_lua_check_context(L, ctx, NGX_HTTP_LUA_CONTEXT_REWRITE
                                | NGX_HTTP_LUA_CONTEXT_ACCESS
                                | NGX_HTTP_LUA_CONTEXT_CONTENT);
@@ -708,12 +708,12 @@ ngx_http_lua_ngx_send_headers(lua_State *L)
         rc = ngx_http_lua_send_header_if_needed(r, ctx);
         if (rc == NGX_ERROR || rc > NGX_OK) {
             lua_pushnil(L);
-            lua_pushliteral(L, "nginx output filter error");
+            lua_pushliteral(L, "nginx output filter error"); //return false, message
             return 2;
         }
     }
 
-    lua_pushinteger(L, 1);
+    lua_pushinteger(L, 1); //返回true
     return 1;
 }
 
