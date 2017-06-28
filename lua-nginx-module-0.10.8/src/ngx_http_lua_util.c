@@ -732,11 +732,11 @@ ngx_http_lua_inject_ngx_api(lua_State *L, ngx_http_lua_main_conf_t *lmcf,
 
     ngx_http_lua_inject_log_api(L); //注入ngx.log API
     ngx_http_lua_inject_output_api(L);
-    ngx_http_lua_inject_time_api(L);
-    ngx_http_lua_inject_string_api(L);
-    ngx_http_lua_inject_control_api(log, L);
+    ngx_http_lua_inject_time_api(L); //注入时间操作API
+    ngx_http_lua_inject_string_api(L); //注入字符串操作API
+    ngx_http_lua_inject_control_api(log, L); //注入ngx.redirect exec exit on_abort操控API
     ngx_http_lua_inject_subrequest_api(L);
-    ngx_http_lua_inject_sleep_api(L);
+    ngx_http_lua_inject_sleep_api(L); //注入ngx.sleep API
     ngx_http_lua_inject_phase_api(L);
 
 #if (NGX_PCRE)

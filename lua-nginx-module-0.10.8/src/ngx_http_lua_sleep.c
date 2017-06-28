@@ -41,7 +41,7 @@ ngx_http_lua_ngx_sleep(lua_State *L)
         return luaL_error(L, "no request found");
     }
 
-    delay = (ngx_int_t) (luaL_checknumber(L, 1) * 1000);
+    delay = (ngx_int_t) (luaL_checknumber(L, 1) * 1000); //转换成毫秒
 
     if (delay < 0) {
         return luaL_error(L, "invalid sleep duration \"%d\"", delay);
@@ -64,9 +64,9 @@ ngx_http_lua_ngx_sleep(lua_State *L)
         return luaL_error(L, "no co ctx found");
     }
 
-    ngx_http_lua_cleanup_pending_operation(coctx);
+    ngx_http_lua_cleanup_pending_operation(coctx); //若存在清理操作，则进行一次清理
     coctx->cleanup = ngx_http_lua_sleep_cleanup;
-    coctx->data = r;
+    coctx->data = r; //线程上下文用户数据 指向用户请求request
 
     coctx->sleep.handler = ngx_http_lua_sleep_handler;
     coctx->sleep.data = coctx;
@@ -132,7 +132,7 @@ void
 ngx_http_lua_inject_sleep_api(lua_State *L)
 {
     lua_pushcfunction(L, ngx_http_lua_ngx_sleep);
-    lua_setfield(L, -2, "sleep");
+    lua_setfield(L, -2, "sleep"); //ngx.sleep(1)
 }
 
 

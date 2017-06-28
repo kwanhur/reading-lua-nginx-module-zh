@@ -33,7 +33,7 @@ ngx_http_lua_inject_control_api(ngx_log_t *log, lua_State *L)
     /* ngx.exec */
 
     lua_pushcfunction(L, ngx_http_lua_ngx_exec);
-    lua_setfield(L, -2, "exec");
+    lua_setfield(L, -2, "exec"); //ngx.exec('location', args) 内部跳转 不像ngx.redirect会产生外部流量
 
     lua_pushcfunction(L, ngx_http_lua_ngx_exit);
     lua_setfield(L, -2, "throw_error"); /* deprecated */
@@ -46,7 +46,7 @@ ngx_http_lua_inject_control_api(ngx_log_t *log, lua_State *L)
     /* ngx.on_abort */
 
     lua_pushcfunction(L, ngx_http_lua_on_abort);
-    lua_setfield(L, -2, "on_abort");
+    lua_setfield(L, -2, "on_abort"); //注册用户回调函数 起线程进行等待调用
 }
 
 
@@ -428,7 +428,7 @@ ngx_http_lua_on_abort(lua_State *L)
         return 2;
     }
 
-    ngx_http_lua_coroutine_create_helper(L, r, ctx, &coctx);
+    ngx_http_lua_coroutine_create_helper(L, r, ctx, &coctx); //创建线程
 
     lua_pushlightuserdata(L, &ngx_http_lua_coroutines_key);
     lua_rawget(L, LUA_REGISTRYINDEX);

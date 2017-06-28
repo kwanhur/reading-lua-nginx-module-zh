@@ -35,10 +35,10 @@ ngx_http_lua_ngx_today(lua_State *L)
     u_char                   buf[sizeof("2010-11-19") - 1];
 
     now = ngx_time();
-    ngx_gmtime(now + ngx_cached_time->gmtoff * 60, &tm);
+    ngx_gmtime(now + ngx_cached_time->gmtoff * 60, &tm); //时区转换
 
     ngx_sprintf(buf, "%04d-%02d-%02d", tm.ngx_tm_year, tm.ngx_tm_mon,
-                tm.ngx_tm_mday);
+                tm.ngx_tm_mday); //当前日期
 
     lua_pushlstring(L, (char *) buf, sizeof(buf));
 
@@ -53,7 +53,7 @@ ngx_http_lua_ngx_localtime(lua_State *L)
 
     u_char buf[sizeof("2010-11-19 20:56:31") - 1];
 
-    ngx_gmtime(ngx_time() + ngx_cached_time->gmtoff * 60, &tm);
+    ngx_gmtime(ngx_time() + ngx_cached_time->gmtoff * 60, &tm); //以分钟为单位进行时区转换
 
     ngx_sprintf(buf, "%04d-%02d-%02d %02d:%02d:%02d", tm.ngx_tm_year,
                 tm.ngx_tm_mon, tm.ngx_tm_mday, tm.ngx_tm_hour, tm.ngx_tm_min,
@@ -68,7 +68,7 @@ ngx_http_lua_ngx_localtime(lua_State *L)
 static int
 ngx_http_lua_ngx_time(lua_State *L)
 {
-    lua_pushnumber(L, (lua_Number) ngx_time());
+    lua_pushnumber(L, (lua_Number) ngx_time()); //时间戳 到毫秒
 
     return 1;
 }
@@ -81,7 +81,7 @@ ngx_http_lua_ngx_now(lua_State *L)
 
     tp = ngx_timeofday();
 
-    lua_pushnumber(L, (lua_Number) (tp->sec + tp->msec / 1000.0L));
+    lua_pushnumber(L, (lua_Number) (tp->sec + tp->msec / 1000.0L)); //返回时间戳 到秒
 
     return 1;
 }
@@ -101,13 +101,13 @@ ngx_http_lua_ngx_utctime(lua_State *L)
     ngx_tm_t       tm;
     u_char         buf[sizeof("2010-11-19 20:56:31") - 1];
 
-    ngx_gmtime(ngx_time(), &tm);
+    ngx_gmtime(ngx_time(), &tm); //当前时间值对象赋值给tm
 
     ngx_sprintf(buf, "%04d-%02d-%02d %02d:%02d:%02d", tm.ngx_tm_year,
                 tm.ngx_tm_mon, tm.ngx_tm_mday, tm.ngx_tm_hour, tm.ngx_tm_min,
-                tm.ngx_tm_sec);
+                tm.ngx_tm_sec); //格式转换赋值给buf
 
-    lua_pushlstring(L, (char *) buf, sizeof(buf));
+    lua_pushlstring(L, (char *) buf, sizeof(buf)); //输出相应字符串
 
     return 1;
 }
@@ -125,7 +125,7 @@ ngx_http_lua_ngx_cookie_time(lua_State *L)
         return luaL_error(L, "expecting one argument");
     }
 
-    t = (time_t) luaL_checknumber(L, 1);
+    t = (time_t) luaL_checknumber(L, 1); //时间戳
 
     p = buf;
     p = ngx_http_cookie_time(p, t);
@@ -172,7 +172,7 @@ ngx_http_lua_ngx_parse_http_time(lua_State *L)
 
     p = (u_char *) luaL_checklstring(L, 1, &len);
 
-    time = ngx_http_parse_time(p, len);
+    time = ngx_http_parse_time(p, len); //http_time转换成时间戳
     if (time == NGX_ERROR) {
         lua_pushnil(L);
         return 1;
@@ -203,7 +203,7 @@ void
 ngx_http_lua_inject_time_api(lua_State *L)
 {
     lua_pushcfunction(L, ngx_http_lua_ngx_utctime);
-    lua_setfield(L, -2, "utctime");
+    lua_setfield(L, -2, "utctime"); //ngx.utctime()
 
     lua_pushcfunction(L, ngx_http_lua_ngx_time);
     lua_setfield(L, -2, "get_now_ts"); /* deprecated */
@@ -212,16 +212,16 @@ ngx_http_lua_inject_time_api(lua_State *L)
     lua_setfield(L, -2, "get_now"); /* deprecated */
 
     lua_pushcfunction(L, ngx_http_lua_ngx_localtime);
-    lua_setfield(L, -2, "localtime");
+    lua_setfield(L, -2, "localtime"); //ngx.localtime()
 
     lua_pushcfunction(L, ngx_http_lua_ngx_time);
-    lua_setfield(L, -2, "time");
+    lua_setfield(L, -2, "time"); //ngx.time() 毫秒时间戳
 
     lua_pushcfunction(L, ngx_http_lua_ngx_now);
-    lua_setfield(L, -2, "now");
+    lua_setfield(L, -2, "now"); //ngx.now() 秒时间戳
 
     lua_pushcfunction(L, ngx_http_lua_ngx_update_time);
-    lua_setfield(L, -2, "update_time");
+    lua_setfield(L, -2, "update_time"); //触发更新nginx缓存时间
 
     lua_pushcfunction(L, ngx_http_lua_ngx_today);
     lua_setfield(L, -2, "get_today"); /* deprecated */
