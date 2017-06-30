@@ -22,7 +22,7 @@ void
 ngx_http_lua_inject_req_uri_api(ngx_log_t *log, lua_State *L)
 {
     lua_pushcfunction(L, ngx_http_lua_ngx_req_set_uri);
-    lua_setfield(L, -2, "set_uri");
+    lua_setfield(L, -2, "set_uri"); //ngx.req.set_uri
 }
 
 
@@ -90,7 +90,7 @@ ngx_http_lua_ngx_req_set_uri(lua_State *L)
 
     r->uri.len = len;
 
-    r->internal = 1;
+    r->internal = 1; //标识为内部请求
     r->valid_unparsed_uri = 0;
 
     ngx_http_set_exten(r);

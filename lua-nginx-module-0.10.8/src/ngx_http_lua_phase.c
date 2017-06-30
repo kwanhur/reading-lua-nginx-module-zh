@@ -104,7 +104,7 @@ void
 ngx_http_lua_inject_phase_api(lua_State *L)
 {
     lua_pushcfunction(L, ngx_http_lua_ngx_get_phase);
-    lua_setfield(L, -2, "get_phase");
+    lua_setfield(L, -2, "get_phase"); //ngx.get_phase() 获取当前所属phase
 }
 
 /* vi:set ft=c ts=4 sw=4 et fdm=marker: */

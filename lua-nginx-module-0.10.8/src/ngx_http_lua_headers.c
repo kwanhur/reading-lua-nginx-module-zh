@@ -38,7 +38,7 @@ ngx_http_lua_ngx_req_http_version(lua_State *L)
         return luaL_error(L, "no request object found");
     }
 
-    ngx_http_lua_check_fake_request(L, r);
+    ngx_http_lua_check_fake_request(L, r); //检测API是否禁用
 
     switch (r->http_version) {
     case NGX_HTTP_VERSION_9:
@@ -128,7 +128,7 @@ ngx_http_lua_ngx_req_raw_header(lua_State *L)
     size = 0;
     b = c->buffer;
 
-    if (mr->request_line.data[mr->request_line.len] == CR) {
+    if (mr->request_line.data[mr->request_line.len] == CR) { //判断是否为\r\n
         line_break_len = 2;
 
     } else {
@@ -139,7 +139,7 @@ ngx_http_lua_ngx_req_raw_header(lua_State *L)
         && mr->request_line.data + mr->request_line.len
            + line_break_len <= b->pos)
     {
-        first = b;
+        first = b; //起始位置
         size += b->pos - mr->request_line.data;
     }
 
@@ -372,8 +372,8 @@ ngx_http_lua_ngx_req_get_headers(lua_State *L)
 
     ngx_http_lua_check_fake_request(L, r);
 
-    part = &r->headers_in.headers.part;
-    count = part->nelts;
+    part = &r->headers_in.headers.part; //客户端请求头部分
+    count = part->nelts; //请求头元素总个数遍历加和
     while (part->next) {
         part = part->next;
         count += part->nelts;
@@ -394,7 +394,7 @@ ngx_http_lua_ngx_req_get_headers(lua_State *L)
     }
 
     part = &r->headers_in.headers.part;
-    header = part->elts;
+    header = part->elts; //请求头里真正数据 header[i].key || value kv对
 
     for (i = 0; /* void */; i++) {
 
@@ -410,10 +410,10 @@ ngx_http_lua_ngx_req_get_headers(lua_State *L)
             i = 0;
         }
 
-        if (raw) {
+        if (raw) { //原生key，不处理
             lua_pushlstring(L, (char *) header[i].key.data, header[i].key.len);
 
-        } else {
+        } else { //转为小写
             lua_pushlstring(L, (char *) header[i].lowcase_key,
                             header[i].key.len);
         }
@@ -984,7 +984,7 @@ void
 ngx_http_lua_inject_req_header_api(lua_State *L)
 {
     lua_pushcfunction(L, ngx_http_lua_ngx_req_http_version);
-    lua_setfield(L, -2, "http_version");
+    lua_setfield(L, -2, "http_version"); //ngx.req.http_version()
 
     lua_pushcfunction(L, ngx_http_lua_ngx_req_raw_header);
     lua_setfield(L, -2, "raw_header");

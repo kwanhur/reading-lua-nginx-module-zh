@@ -737,13 +737,13 @@ ngx_http_lua_inject_ngx_api(lua_State *L, ngx_http_lua_main_conf_t *lmcf,
     ngx_http_lua_inject_control_api(log, L); //注入ngx.redirect exec exit on_abort操控API
     ngx_http_lua_inject_subrequest_api(L);
     ngx_http_lua_inject_sleep_api(L); //注入ngx.sleep API
-    ngx_http_lua_inject_phase_api(L);
+    ngx_http_lua_inject_phase_api(L); //注入ngx.get_phase API
 
 #if (NGX_PCRE)
     ngx_http_lua_inject_regex_api(L);
 #endif
 
-    ngx_http_lua_inject_req_api(log, L);
+    ngx_http_lua_inject_req_api(log, L); //注入ngx.req. API
     ngx_http_lua_inject_resp_header_api(L);
     ngx_http_lua_create_headers_metatable(log, L);
     ngx_http_lua_inject_variable_api(L);

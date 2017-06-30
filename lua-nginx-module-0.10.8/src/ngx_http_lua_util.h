@@ -119,7 +119,7 @@ ngx_http_lua_ffi_check_context(ngx_http_lua_ctx_t *ctx, unsigned flags,
 }
 #endif
 
-
+//检查当前API是否可用
 #define ngx_http_lua_check_fake_request(L, r)                                \
     if ((r)->connection->fd == (ngx_socket_t) -1) {                          \
         return luaL_error(L, "API disabled in the current context");         \
