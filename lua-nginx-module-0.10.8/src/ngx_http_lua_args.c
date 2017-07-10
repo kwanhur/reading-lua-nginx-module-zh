@@ -172,7 +172,7 @@ ngx_http_lua_ngx_req_get_post_args(lua_State *L)
 
     ngx_http_lua_check_fake_request(L, r);
 
-    if (r->discard_body) {
+    if (r->discard_body) { //丢弃body数据 返回空的table
         lua_createtable(L, 0, 0);
         return 1;
     }
@@ -182,13 +182,13 @@ ngx_http_lua_ngx_req_get_post_args(lua_State *L)
                           "maybe you should turn on lua_need_request_body?");
     }
 
-    if (r->request_body->temp_file) {
+    if (r->request_body->temp_file) { //存在临时文件 提示无法支持从文件中获取请求的body参数
         lua_pushnil(L);
         lua_pushliteral(L, "request body in temp file not supported");
         return 2;
     }
 
-    if (r->request_body->bufs == NULL) {
+    if (r->request_body->bufs == NULL) { //body 指定数据为空
         lua_createtable(L, 0, 0);
         return 1;
     }
@@ -198,7 +198,7 @@ ngx_http_lua_ngx_req_get_post_args(lua_State *L)
 
     len = 0;
     for (cl = r->request_body->bufs; cl; cl = cl->next) {
-        len += cl->buf->last - cl->buf->pos;
+        len += cl->buf->last - cl->buf->pos; //计算总长度
     }
 
     dd("post body length: %d", (int) len);
@@ -250,18 +250,20 @@ ngx_http_lua_parse_args(lua_State *L, u_char *buf, u_char *last, int max)
     q = p;
 
     while (p != last) {
+        //?name=kwanhur&age=10
         if (*p == '=' && ! parsing_value) {
             /* key data is between p and q */
 
             src = q; dst = q;
-
+            //反转义特殊字符
+            //dst指向=
             ngx_http_lua_unescape_uri(&dst, &src, p - q,
                                       NGX_UNESCAPE_URI_COMPONENT);
 
             dd("pushing key %.*s", (int) (dst - q), q);
 
             /* push the key */
-            lua_pushlstring(L, (char *) q, dst - q);
+            lua_pushlstring(L, (char *) q, dst - q);//key:name
 
             /* skip the current '=' char */
             p++;
@@ -279,14 +281,14 @@ ngx_http_lua_parse_args(lua_State *L, u_char *buf, u_char *last, int max)
             dd("pushing key or value %.*s", (int) (dst - q), q);
 
             /* push the value or key */
-            lua_pushlstring(L, (char *) q, dst - q);
+            lua_pushlstring(L, (char *) q, dst - q);//键或值
 
             /* skip the current '&' char */
             p++;
 
             q = p;
 
-            if (parsing_value) {
+            if (parsing_value) { //转换过说明是键key
                 /* end of the current pair's value */
                 parsing_value = 0;
 
@@ -303,7 +305,7 @@ ngx_http_lua_parse_args(lua_State *L, u_char *buf, u_char *last, int max)
             if (len == 0) {
                 /* ignore empty string key pairs */
                 dd("popping key and value...");
-                lua_pop(L, 2);
+                lua_pop(L, 2);//出栈 key+val name=kwanhur
 
             } else {
                 dd("setting table...");
@@ -336,7 +338,7 @@ ngx_http_lua_parse_args(lua_State *L, u_char *buf, u_char *last, int max)
             dd("pushing boolean true...");
             lua_pushboolean(L, 1);
         }
-
+        //设置对应的长度
         (void) lua_tolstring(L, -2, &len);
 
         if (len == 0) {
