@@ -27,9 +27,9 @@ ngx_http_lua_inject_variable_api(lua_State *L)
 
     lua_createtable(L, 0, 2 /* nrec */); /* metatable for .var */
     lua_pushcfunction(L, ngx_http_lua_var_get);
-    lua_setfield(L, -2, "__index");
+    lua_setfield(L, -2, "__index"); //索引table获取元素对应的值
     lua_pushcfunction(L, ngx_http_lua_var_set);
-    lua_setfield(L, -2, "__newindex");
+    lua_setfield(L, -2, "__newindex"); //新增table元素触发添加对应值
     lua_setmetatable(L, -2);
 
     lua_setfield(L, -2, "var");
